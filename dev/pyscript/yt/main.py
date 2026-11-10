@@ -62,8 +62,8 @@ if 'v' in list(getargs().keys()):
 	VID=getargs()['v'][0]
 	append_vid(body,VID)
 elif 'list' in list(getargs().keys()):
-	VID=append_list(body,VID)
-	getargs()['list'][0]
+	VID=getargs()['list'][0]
+	append_list(body,VID)
 else:
 	print("no video specifyed")
 	append_vid(body,"L6oOluDPGnI")
