@@ -59,9 +59,12 @@ def append_list(body,VID="NB6lnoyvX1k"):
 
 
 try:
-	getargs()['v']
+	VID=getargs()['v']
 	append_vid(body,VID)
 except:
-	getargs()['list']
-	append_list(body,VID)
-
+	try:
+		getargs()['list']
+		VID=append_list(body,VID)
+	except:
+		print("no video specifyed")
+		append_vid(body,"L6oOluDPGnI")
