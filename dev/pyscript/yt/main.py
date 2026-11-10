@@ -63,8 +63,8 @@ try:
 	append_vid(body,VID)
 except:
 	try:
-		getargs()['list']
 		VID=append_list(body,VID)
+		getargs()['list']
 	except:
 		print("no video specifyed")
 		append_vid(body,"L6oOluDPGnI")
