@@ -16,6 +16,8 @@ def getvid(url):
 # -------------------------------------------------------------
 # 1. BUILD THE UI ENTIRELY IN PYTHON
 # -------------------------------------------------------------
+head = document.head
+head.title = "ytvid"
 body = document.body
 body.style.fontFamily = "sans-serif"
 body.style.maxWidth = "500px"
@@ -24,7 +26,7 @@ body.style.padding = "0 20px"
 
 # Title
 title = document.createElement("h2")
-title.textContent = "Supabase + PyScript (Python UI)"
+title.textContent = "ytvid"
 body.appendChild(title)
 
 # Input container

@@ -21,7 +21,7 @@ body.style.padding = "0 20px"
 
 # Title
 title = document.createElement("h2")
-title.textContent = "tcmods10>ytlist"
+title.textContent = "ytlist"
 body.appendChild(title)
 
 # Input container
