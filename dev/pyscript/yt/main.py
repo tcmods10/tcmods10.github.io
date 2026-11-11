@@ -52,16 +52,18 @@ def addlist(div_read,VID="NB6lnoyvX1k"):
     div_read.appendChild(output_el)
 def append_list(body,VID="NB6lnoyvX1k"):
     div_read = document.createElement("div")
-    addvid(div_read,VID)
+    addlist(div_read,VID)
     body.appendChild(div_read)
 
 
 
 
 if 'v' in list(getargs().keys()):
+	print("video")
 	VID=getargs()['v'][0]
 	append_vid(body,VID)
 elif 'list' in list(getargs().keys()):
+	print("list")
 	VID=getargs()['list'][0]
 	append_list(body,VID)
 else:
