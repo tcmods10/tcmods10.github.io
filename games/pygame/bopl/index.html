@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Bopl-style Brawler</title>
+  <link rel="stylesheet" href="https://pyscript.net/releases/2026.7.1/core.css">
+  <script type="module" src="https://pyscript.net/releases/2026.7.1/core.js"></script>
+  <style>
+    html, body { margin: 0; height: 100%; background: #111; }
+    body { display: flex; align-items: center; justify-content: center; }
+    canvas { max-width: 100vw; max-height: 100vh; aspect-ratio: 16 / 9; outline: none; }
+  </style>
+  <script>
+    // Stop the browser from scrolling / quick-finding on game keys (space, arrows, ' / backspace ...)
+    addEventListener("keydown", e => {
+      if (!/^F\d+$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) e.preventDefault();
+    }, true);
+  </script>
+</head>
+<body>
+  <canvas id="canvas" tabindex="0"></canvas>
+  <script type="py-game" src="./bopl.py" config="./pyscript.toml"></script>
+</body>
+</html>

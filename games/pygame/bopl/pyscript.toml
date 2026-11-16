@@ -1,0 +1,7 @@
+# PyScript config: loads the mods into the browser's virtual file system.
+# bopl.py itself is run by index.html, so it is not listed here.
+# To add a mod, drop it in mods/ and add a line below.
+[files]
+"mods/builtin.py" = "./mods/builtin.py"
+"mods/maps.py" = "./mods/maps.py"
+"mods/other%20powers.py" = "./mods/other powers.py"
