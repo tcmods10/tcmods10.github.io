@@ -934,6 +934,8 @@ class Game:
         self.pointers = {}                     # active mouse / finger positions (only tracked for the touch player)
         self.touch_btn = pygame.Rect(W - 260, H - 58, 244, 46)
         self._touch_toggled = 0
+        self.add_bot_btn = pygame.Rect(16, H - 58, 170, 46)
+        self.rem_bot_btn = pygame.Rect(194, H - 58, 170, 46)
         if not WEB:
             for i in range(pygame.joystick.get_count()):
                 self.add_joystick(i)
@@ -947,9 +949,6 @@ class Game:
         return self.kb_devices + list(self.joy_devices.values()) + ([self.touch_dev] if self.touch_dev else [])
 
     def toggle_touch(self):
-        if pygame.time.get_ticks() - self._touch_toggled < 400:      # a tap can arrive as finger + mouse events
-            return
-        self._touch_toggled = pygame.time.get_ticks()
         if self.touch_dev:
             owner = next((p for p in self.players if p.device is self.touch_dev), None)
             if owner:
@@ -964,8 +963,13 @@ class Game:
 
     def pointer_event(self, key, pos, down=None):
         """down=True/False for press/release, None for movement."""
-        if down and self.state == "lobby" and self.touch_btn.collidepoint(pos):
-            self.toggle_touch()
+        if down and self.state == "lobby" and pygame.time.get_ticks() - self._touch_toggled > 400:
+            # (a tap can arrive as a finger event + a mouse event, hence the 0.4s debounce)
+            for rect, action in ((self.touch_btn, self.toggle_touch), (self.add_bot_btn, self.add_bot),
+                                 (self.rem_bot_btn, self.remove_bot)):
+                if rect.collidepoint(pos):
+                    self._touch_toggled = pygame.time.get_ticks()
+                    action()
         if not self.touch_dev:
             return
         if down is False:
@@ -1316,6 +1320,8 @@ class Game:
             for p in self.players:
                 if p.device.is_bot:
                     p.device.update()
+            if self.touch_dev and self.touch_dev.back_p and self.state != "lobby":
+                self.reset_to_lobby()           # touch BACK = Esc (leave the match)
             getattr(self, "update_" + self.state)(dt)
             self.draw()
             pygame.display.flip()
@@ -1481,6 +1487,10 @@ class Game:
         pygame.draw.rect(s, (60, 62, 80), r, border_radius=10)
         pygame.draw.rect(s, (255, 255, 255) if self.touch_dev else (150, 155, 180), r, 2, border_radius=10)
         draw_text(s, "Remove touch player" if self.touch_dev else "+ Add touch player", 26, r.center)
+        for r, label in ((self.add_bot_btn, "+ Computer"), (self.rem_bot_btn, "- Computer")):
+            pygame.draw.rect(s, (60, 62, 80), r, border_radius=10)
+            pygame.draw.rect(s, (150, 155, 180), r, 2, border_radius=10)
+            draw_text(s, label, 26, r.center)
         ready = len(self.players) >= CONFIG["min_players"]
         draw_text(s, "Press START / ENTER to begin" if ready else f"Need {CONFIG['min_players']} players to start",
                   40, (W / 2, H - 28), (120, 255, 140) if ready else (255, 150, 120))
