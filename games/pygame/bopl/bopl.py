@@ -262,6 +262,34 @@ class KeyboardDevice(InputDevice):
                     start=d(self.k.get("start")), back=d(self.k.get("back")), slots=slots)
 
 
+class TouchDevice(InputDevice):
+    """On-screen buttons triggered by mouse clicks / finger taps.
+    Only exists (and is only read) after 'Add touch player' is clicked in the lobby."""
+
+    def __init__(self, game):
+        super().__init__("Touch screen")
+        self.game = game
+        self.down = set()
+        b = 84
+        self.buttons = {
+            "up": pygame.Rect(112, 440, b, b), "left": pygame.Rect(20, 532, b, b),
+            "down": pygame.Rect(112, 532, b, b), "right": pygame.Rect(204, 532, b, b),
+            "jump": pygame.Rect(W - 130, 520, 110, 110),
+            "back": pygame.Rect(W - 215, 10, 100, 40), "start": pygame.Rect(W - 110, 10, 100, 40)}
+        for i in range(CONFIG["power_slots"]):
+            row, col = divmod(i, 4)
+            self.buttons[f"slot{i}"] = pygame.Rect(W - 20 - (col + 1) * 70 - col * 8, 430 - row * 78, 70, 70)
+
+    def _read(self):
+        pts = list(self.game.pointers.values())
+        d = self.down = {n for n, r in self.buttons.items() if any(r.collidepoint(p) for p in pts)}
+        x = ("right" in d) - ("left" in d)
+        y = ("down" in d) - ("up" in d)
+        return dict(mx=float(x), my=float(y), ax=float(x), ay=float(y), jump="jump" in d,
+                    start="start" in d, back="back" in d,
+                    slots=[f"slot{i}" in d for i in range(CONFIG["power_slots"])])
+
+
 class WebJoy:
     """Browser Gamepad API wrapped to look like a pygame Joystick (SDL's browser gamepad support is unreliable).
     Browser 'standard' layout is translated to the Xbox/Windows layout the default config uses:
@@ -902,6 +930,10 @@ class Game:
         self.cur_map, self.last_map = None, None
         self.kb_devices = [KeyboardDevice(s) for s in CONFIG["keyboards"]]
         self.joy_devices = {}
+        self.touch_dev = None                  # created by the lobby's "Add touch player" button
+        self.pointers = {}                     # active mouse / finger positions (only tracked for the touch player)
+        self.touch_btn = pygame.Rect(W - 260, H - 58, 244, 46)
+        self._touch_toggled = 0
         if not WEB:
             for i in range(pygame.joystick.get_count()):
                 self.add_joystick(i)
@@ -912,7 +944,34 @@ class Game:
 
     @property
     def devices(self):
-        return self.kb_devices + list(self.joy_devices.values())
+        return self.kb_devices + list(self.joy_devices.values()) + ([self.touch_dev] if self.touch_dev else [])
+
+    def toggle_touch(self):
+        if pygame.time.get_ticks() - self._touch_toggled < 400:      # a tap can arrive as finger + mouse events
+            return
+        self._touch_toggled = pygame.time.get_ticks()
+        if self.touch_dev:
+            owner = next((p for p in self.players if p.device is self.touch_dev), None)
+            if owner:
+                self.players.remove(owner)
+                for i, p in enumerate(self.players):
+                    p.set_index(i)
+            self.touch_dev = None
+            self.pointers.clear()
+        elif len(self.players) < CONFIG["max_players"]:
+            self.touch_dev = TouchDevice(self)
+            self.players.append(Player(len(self.players), self.touch_dev))
+
+    def pointer_event(self, key, pos, down=None):
+        """down=True/False for press/release, None for movement."""
+        if down and self.state == "lobby" and self.touch_btn.collidepoint(pos):
+            self.toggle_touch()
+        if not self.touch_dev:
+            return
+        if down is False:
+            self.pointers.pop(key, None)
+        elif down or key in self.pointers:
+            self.pointers[key] = pos
 
     def add_joystick(self, index):
         try:
@@ -1227,6 +1286,15 @@ class Game:
                 self.add_bot()
             elif e.key == pygame.K_F3 and self.state == "lobby":
                 self.remove_bot()
+        elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+            self.pointer_event("mouse", e.pos, True)
+        elif e.type == pygame.MOUSEMOTION:
+            self.pointer_event("mouse", e.pos)
+        elif e.type == pygame.MOUSEBUTTONUP and e.button == 1:
+            self.pointer_event("mouse", e.pos, False)
+        elif e.type in (pygame.FINGERDOWN, pygame.FINGERMOTION, pygame.FINGERUP):
+            self.pointer_event(("finger", e.finger_id), (e.x * W, e.y * H),
+                               True if e.type == pygame.FINGERDOWN else False if e.type == pygame.FINGERUP else None)
         elif e.type == pygame.JOYDEVICEADDED and not WEB:
             self.add_joystick(e.device_index)
         elif e.type == pygame.JOYDEVICEREMOVED and not WEB:
@@ -1294,6 +1362,28 @@ class Game:
         s = self.screen
         s.blit(self.bg, (0, 0))
         getattr(self, "draw_" + self.state)()
+        if self.touch_dev:
+            self.draw_touch()
+
+    def draw_touch(self):
+        dev = self.touch_dev
+        owner = next((p for p in self.players if p.device is dev), None)
+        labels = {"up": "^", "down": "v", "left": "<", "right": ">", "jump": "JUMP", "back": "BACK", "start": "START"}
+        for name, r in dev.buttons.items():
+            on = name in dev.down
+            pw = None
+            if name.startswith("slot") and owner:
+                i = int(name[4:])
+                pw = owner.slots[i] if i < len(owner.slots) else None
+            ov = pygame.Surface(r.size, pygame.SRCALPHA)
+            ov.fill((255, 255, 255, 110 if on else 45))
+            self.screen.blit(ov, r)
+            pygame.draw.rect(self.screen, (255, 255, 255), r, 2, border_radius=10)
+            if pw:
+                self.draw_icon(r.inflate(-8, -8), pw)
+            else:
+                label = labels.get(name) or str(int(name[4:]) + 1)        # slot buttons show their number
+                draw_text(self.screen, label, 24 if name in ("back", "start", "jump") else 36, r.center)
 
     def draw_world(self):
         s = self.screen
@@ -1387,6 +1477,10 @@ class Game:
                   21, (W / 2, y2 + 30 + len(CONFIG['keyboards']) * 22), (170, 175, 195))
         draw_text(s, "F2: add computer player    F3: remove computer player", 21,
                   (W / 2, y2 + 52 + len(CONFIG['keyboards']) * 22), (170, 175, 195))
+        r = self.touch_btn
+        pygame.draw.rect(s, (60, 62, 80), r, border_radius=10)
+        pygame.draw.rect(s, (255, 255, 255) if self.touch_dev else (150, 155, 180), r, 2, border_radius=10)
+        draw_text(s, "Remove touch player" if self.touch_dev else "+ Add touch player", 26, r.center)
         ready = len(self.players) >= CONFIG["min_players"]
         draw_text(s, "Press START / ENTER to begin" if ready else f"Need {CONFIG['min_players']} players to start",
                   40, (W / 2, H - 28), (120, 255, 140) if ready else (255, 150, 120))
