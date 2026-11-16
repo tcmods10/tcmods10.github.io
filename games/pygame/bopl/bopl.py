@@ -14,6 +14,18 @@ from pathlib import Path
 import pygame
 from pygame import Vector2 as V2
 
+
+
+def graburlargs():
+    from pyscript import window
+    from urllib.parse import parse_qs
+    return window.URLSearchParams.new(window.location.search)
+    #return parse_qs(window.location.search.lstrip("?"))
+
+
+
+
+
 # Lets mods do "from bopl import ..." even when this file is run as a script.
 sys.modules.setdefault("bopl", sys.modules[__name__])
 
@@ -73,23 +85,15 @@ DEFAULT_CONFIG = {
 
 def load_config():
     cfg = json.loads(json.dumps(DEFAULT_CONFIG))
-    if CONFIG_PATH.exists():
-        try:
-            with open(CONFIG_PATH) as f:
-                user = json.load(f)
-            for k, v in user.items():
-                if isinstance(v, dict) and isinstance(cfg.get(k), dict):
-                    cfg[k].update(v)
-                else:
-                    cfg[k] = v
-        except Exception as e:
-            print("[config] could not read config.json, using defaults:", e)
-    else:
-        try:
-            with open(CONFIG_PATH, "w") as f:
-                json.dump(DEFAULT_CONFIG, f, indent=2)
-        except OSError:
-            pass
+    try:
+        user = graburlargs()
+        for k, v in user.items():
+            if isinstance(v, dict) and isinstance(cfg.get(k), dict):
+               cfg[k].update(v)
+            else:
+                cfg[k] = type(cfg[k])(v)
+    except Exception as e:
+       print("[config] could not read config.json, using defaults:", e)
     return cfg
 
 
